@@ -1,0 +1,131 @@
+<html>
+
+<head>
+    <!-- Load the latest version of TensorFlow.js -->
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/knn-classifier"></script>
+</head>
+
+<body>
+    <h1>
+        <img src ='images\head.JPG' class="center">
+    </h1>
+
+    <div id="console" class="Pred"></div>
+
+    <video autoplay playsinline muted id="webcam" width="700" height="700" class="center"></video>
+
+    <!-- Load index.js after the content of the page -->
+    <script Access-Control-Allow-Origin: *>
+
+        const webcamElement = document.getElementById('webcam');
+        const classifier = knnClassifier.create();
+        let net;
+        let net2;
+
+        function preprocess(img) {
+
+            //convert the image data to a tensor 
+            let tensor = tf.fromPixels(img)
+            //resize to 50 X 50
+            const resized = tf.image.resizeBilinear(tensor, [50, 50]).toFloat()
+            // Normalize the image 
+            const offset = tf.scalar(255.0);
+            const normalized = tf.scalar(1.0).sub(resized.div(offset));
+            //We add a dimension to get a batch shape 
+            const batched = normalized.expandDims(0)
+            return batched
+
+        }
+        function cropImage(img) {
+            const width = img.shape[0]; const height = img.shape[1];  // use the shorter side as the size to which we will crop
+            const shorterSide = Math.min(img.shape[0], img.shape[1]);
+            // calculate beginning and ending crop points  
+            const startingHeight = (height - shorterSide) / 2;
+            const startingWidth = (width - shorterSide) / 2;
+            const endingHeight = startingHeight + shorterSide;
+            const endingWidth = startingWidth + shorterSide;
+            // return image data cropped to those points  
+            return img.slice([startingWidth, startingHeight, 0], [endingWidth, endingHeight, 3]);
+        }
+        function resizeImage(image) { return tf.image.resizeBilinear(image, [224, 224]); }
+        function batchImage(image) {
+            // Expand our tensor to have an additional dimension, whose size is 1  
+            const batchedImage = image.expandDims(0);
+            // Turn pixel data into a float between -1 and 1.  
+            return batchedImage.toFloat().div(tf.scalar(127)).sub(tf.scalar(1));
+        }
+
+        function loadAndProcessImage(image) {
+            const croppedImage = cropImage(image);
+            const resizedImage = resizeImage(croppedImage);
+            const batchedImage = batchImage(resizedImage);
+            return batchedImage;
+        }
+        function sleep(milliseconds) {
+            var start = new Date().getTime();
+            for (var i = 0; i < 1e7; i++) {
+                if ((new Date().getTime() - start) > milliseconds) {
+                    break;
+                }
+            }
+        }
+
+        async function app() {
+            console.log('Loading MODEL..');
+            document.getElementById("console").style.textAlign = "center";
+            net = await tf.loadLayersModel("http://192.168.1.83:8080/model.json");
+            console.log('Successfully loaded model');
+
+
+
+            // Create an object from Tensorflow.js data API which could capture image 
+            // from the web camera as Tensor.
+            const webcam = await tf.data.webcam(webcamElement);
+            while (true) {
+                const img = await webcam.capture();
+                const result = await net.predict(loadAndProcessImage(img));
+                let arr = await result.data()
+                //let i = arr.indexOf(Math.max(...arr));
+                console.log(arr)
+                let i = arr.indexOf(Math.max(...arr));
+                if ((i == 0)) {
+                    //  block of code to be executed if the condition is true
+                    i = "RECYCLE";
+                } else if (i == 1) {
+                    //  block of code to be executed if the condition is false
+                    i = "RECYCLE";
+                } else if (i == 2) {
+                    //  block of code to be executed if the condition is false
+                    i = "PAPER/CARDBOARD WASTE";
+                } else if (i == 3) {
+                    //  block of code to be executed if the condition is false
+                    i = "PAPER/CARDBOARD WASTE";
+                } else if (i == 4) {
+                    //  block of code to be executed if the condition is false
+                    i = "RECYCLE";
+                }
+                else if (i == 5) {
+                    //  block of code to be executed if the condition is false
+                    i = "Metal RECYCLE";
+                }
+                let out = `${i}\n`
+                document.getElementById('console').innerText = ` ${i}\n`;
+                // Dispose the tensor to release the memory.
+                img.dispose();
+
+                // Give some breathing room by waiting for the next animation frame to
+                // fire.
+                await tf.nextFrame();
+
+                sleep(10000);
+
+            }
+        }
+        app();
+    </script>
+</body>
+
+</html>
